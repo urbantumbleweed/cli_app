@@ -11,6 +11,13 @@ struct JSONFileDatabase {
     pub file_path: String,
 }
 
+impl Database for JSONFileDatabase {
+    fn read_db(&self) -> Result<DBState> {
+        let db_str = fs::read_to_string(&self.file_path)?;
+        let db: DBState = serde_json::from_str(&db_str)?;
+        Ok(db)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
