@@ -44,6 +44,15 @@ pub mod test_utils {
             }
         }
     }
+
+    impl Database for MockDB {
+        fn read_db(&self) -> Result<DBState> {
+            todo!()
+        }
+        fn write_db(&self, db_state: &DBState) -> Result<()> {
+            todo!()
+        }
+    }
 }
 
 #[cfg(test)]
