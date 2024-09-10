@@ -47,10 +47,14 @@ pub mod test_utils {
 
     impl Database for MockDB {
         fn read_db(&self) -> Result<DBState> {
-            todo!()
+            let state = self.last_written_state.borrow().clone();
+            Ok(state)
         }
         fn write_db(&self, db_state: &DBState) -> Result<()> {
-            todo!()
+            let latest_state = &self.last_written_state;
+
+            *latest_state.borrow_mut() = db_state.clone();
+            Ok(())
         }
     }
 }
