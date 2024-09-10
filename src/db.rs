@@ -16,6 +16,12 @@ impl Database for JSONFileDatabase {
         let db_str = fs::read_to_string(&self.file_path)?;
         let db: DBState = serde_json::from_str(&db_str)?;
         Ok(db)
+    }
+    fn write_db(&self, db_state: &DBState) -> Result<()> {
+        let db_ser = json!(db_state);
+        fs::write(&self.file_path, db_ser.to_string())
+            .context("failed to write the db to the filesystem")
+    }
 }
 
 #[cfg(test)]
