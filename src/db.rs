@@ -24,6 +24,28 @@ impl Database for JSONFileDatabase {
     }
 }
 
+pub mod test_utils {
+    use std::{cell::RefCell, collections::HashMap};
+
+    use super::*;
+
+    pub struct MockDB {
+        last_written_state: RefCell<DBState>,
+    }
+
+    impl MockDB {
+        fn new() -> Self {
+            MockDB {
+                last_written_state: RefCell::new(DBState {
+                    last_item_id: 0,
+                    epics: HashMap::new(),
+                    stories: HashMap::new(),
+                }),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
