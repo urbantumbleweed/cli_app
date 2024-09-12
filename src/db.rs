@@ -1,10 +1,13 @@
-use anyhow::Result;
+use std::{fs, io};
+
+use anyhow::{Context, Error, Result};
+use serde_json::json;
 
 use crate::models::DBState;
 
 trait Database {
     fn read_db(&self) -> Result<DBState>;
-    fn write_db(&self, db_state: DBState) -> Result<()>;
+    fn write_db(&self, db_state: &DBState) -> Result<()>;
 }
 
 struct JSONFileDatabase {
@@ -24,6 +27,24 @@ impl Database for JSONFileDatabase {
     }
 }
 
+pub struct JiraDatabase<T> {
+    _phantom_data: T,
+}
+
+impl<T> JiraDatabase<T> {
+    pub fn create(&mut self, record: T) -> Result<T> {
+        todo!("Implement the ability to create a new Epic and or Story and return the result to the caller")
+    }
+    pub fn read<U>(&self, id: &U) -> Result<T> {
+        todo!("Implement the ability to query the db for an entry based on the hashmap id")
+    }
+    pub fn update<V>(&mut self, patch: &V) -> Result<T> {
+        todo!("Implement the ability to update a key with new record. Further development can change this to updating via patch")
+    }
+    pub fn delete<V>(&mut self, id: &V) -> Result<T> {
+        todo!("Implement removing database items by id")
+    }
+}
 pub mod test_utils {
     use std::{cell::RefCell, collections::HashMap};
 
