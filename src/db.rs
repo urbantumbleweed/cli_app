@@ -3,7 +3,7 @@ use std::{fs, io};
 use anyhow::{Context, Error, Result};
 use serde_json::json;
 
-use crate::models::{DBState, Epic};
+use crate::models::{DBState, Epic, Story};
 
 trait Database {
     fn read_db(&self) -> Result<DBState>;
@@ -42,6 +42,20 @@ impl JiraDatabase {
         current_state.last_item_id = id;
         let _ = self.database.write_db(&current_state);
         Ok(id)
+    }
+    pub fn create_story(&mut self, story: Story, epic_id: u32) -> Result<u32> {
+        let mut current_state = self.database.read_db().context("Error fetching database")?;
+        let new_story_id = current_state.last_item_id + 1;
+        current_state.stories.insert(new_story_id, story.clone());
+        let mut epic = current_state
+            .epics
+            .get(&epic_id)
+            .context("Error getting epic")?
+            .clone();
+        epic.stories.push(new_story_id);
+        current_state.last_item_id = new_story_id;
+
+        Ok(new_story_id)
     }
     pub fn read<U>(&self, id: &U) -> Result<Epic> {
         todo!("Implement the ability to query the db for an entry based on the hashmap id")
@@ -128,7 +142,7 @@ mod tests {
 
         #[test]
         fn create_story_should_error_with_invalid_epic_id() {
-            let db = JiraDatabase {
+            let mut db = JiraDatabase {
                 database: Box::new(MockDB::new()),
             };
             let story = Story::new("Sample text".to_owned(), "description text".to_owned());
