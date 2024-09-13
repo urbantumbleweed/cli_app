@@ -1,6 +1,6 @@
 use std::{fs, io};
 
-use anyhow::{Context, Error, Result};
+use anyhow::{anyhow, Context, Error, Result};
 use serde_json::json;
 
 use crate::models::{DBState, Epic, Story};
@@ -61,8 +61,15 @@ impl JiraDatabase {
     pub fn read<U>(&self, id: &U) -> Result<Epic> {
         todo!("Implement the ability to query the db for an entry based on the hashmap id")
     }
-    pub fn delete<V>(&mut self, id: u32) -> Result<Epic> {
-        todo!("Implement removing database items by id")
+    pub fn delete_epic(&mut self, id: u32) -> Result<Epic> {
+        let mut current_state = self.database.read_db().context("Error fetching database")?;
+        match current_state.epics.remove(&id) {
+            Some(deleted_epic) => Ok(deleted_epic),
+            None => Err(anyhow!(
+                "The epic with Id: {} could not be removed because it is invalid or does not exist",
+                &id
+            )),
+        }
     }
 }
 pub mod test_utils {
@@ -195,6 +202,21 @@ mod tests {
                 persisted_story, story,
                 "The story fetched does not match the story persisted"
             );
+        }
+
+        #[test]
+        fn delete_epic_should_error_with_invalid_epic_id() {
+            let mut db = JiraDatabase {
+                database: Box::new(MockDB::new()),
+            };
+            let epic = Epic::new("".to_owned(), "".to_owned());
+            let new_epic = db.create_epic(epic.clone());
+            assert_eq!(new_epic.is_ok(), true);
+
+            let invalid_epic_id = 99;
+            let result = db.delete_epic(invalid_epic_id);
+
+            assert_eq!(result.is_err(), true);
         }
 
         #[test]
