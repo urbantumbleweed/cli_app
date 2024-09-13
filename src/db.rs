@@ -54,6 +54,7 @@ impl JiraDatabase {
             .clone();
         epic.stories.push(new_story_id);
         current_state.last_item_id = new_story_id;
+        let _ = self.database.write_db(&current_state);
 
         Ok(new_story_id)
     }
@@ -150,6 +151,50 @@ mod tests {
             let result: Result<u32> = db.create_story(story, invalid_id);
 
             assert_eq!(result.is_err(), true);
+        }
+
+        #[test]
+        fn create_story_should_work() {
+            let mut db = JiraDatabase {
+                database: Box::new(MockDB::new()),
+            };
+            let epic = Epic::new("Key Project".to_owned(), "Attach some stories".to_owned());
+            let story = Story::new(
+                "New story".to_owned(),
+                "A really important new story".to_owned(),
+            );
+
+            let result_epic_id = db.create_epic(epic);
+            assert_eq!(result_epic_id.is_ok(), true);
+
+            let epic_id = result_epic_id.unwrap();
+
+            let result = db.create_story(story.clone(), epic_id);
+            assert_eq!(
+                result.is_ok(),
+                true,
+                "Calling `.create_story` resulted in an error"
+            );
+
+            let expected_id = 2u32;
+            let id = result.unwrap();
+            assert_eq!(
+                id, expected_id,
+                "The `id` of the added story didn't match the expected value"
+            );
+
+            let persisted_story = db
+                .database
+                .read_db()
+                .unwrap()
+                .stories
+                .get(&id)
+                .unwrap()
+                .clone();
+            assert_eq!(
+                persisted_story, story,
+                "The story fetched does not match the story persisted"
+            );
         }
 
         #[test]
