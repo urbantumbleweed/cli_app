@@ -127,6 +127,18 @@ mod tests {
         }
 
         #[test]
+        fn create_story_should_error_with_invalid_epic_id() {
+            let db = JiraDatabase {
+                database: Box::new(MockDB::new()),
+            };
+            let story = Story::new("Sample text".to_owned(), "description text".to_owned());
+            let invalid_id: u32 = 100;
+            let result: Result<u32> = db.create_story(story, invalid_id);
+
+            assert_eq!(result.is_err(), true);
+        }
+
+        #[test]
         fn read_db_should_fail_with_invalid_path() {
             let db = JSONFileDatabase {
                 file_path: "INVALID PATH".to_owned(),
