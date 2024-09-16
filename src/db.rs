@@ -288,6 +288,38 @@ mod tests {
         assert_eq!(result.is_err(), true);
     }
 
+    #[test]
+    fn delete_story_should_work() {
+        let mut db = JiraDatabase {
+            database: Box::new(MockDB::new()),
+        };
+        let epic = Epic::new("".to_owned(), "".to_owned());
+        let story = Story::new("".to_owned(), "".to_owned());
+        let res_epic_id = db.create_epic(epic);
+        assert!(res_epic_id.is_ok(), "Unable to write new epic");
+
+        let epic_id = res_epic_id.unwrap();
+        let res_story_id = db.create_story(story.clone(), epic_id);
+        assert!(res_story_id.is_ok(), "Unable to write new story");
+
+        let story_id = res_story_id.unwrap();
+
+        let res_deleted_story = db.delete_story(epic_id, story_id);
+        assert!(res_deleted_story.is_ok(), "Unable to delete story");
+        assert_eq!(
+            res_deleted_story.unwrap(),
+            story,
+            "The deleted story does not match was was added"
+        );
+
+        let current_state = db.read_db().unwrap();
+        let not_found_story = current_state.stories.get(&story_id);
+        assert_eq!(
+            not_found_story, None,
+            "Requesting the deleted story should be None"
+        );
+    }
+
     mod database {
         use std::collections::HashMap;
         use std::io::Write;
