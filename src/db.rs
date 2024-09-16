@@ -334,6 +334,21 @@ mod tests {
         assert_eq!(epic_stories_len.unwrap(), expected_epic_story_len);
     }
 
+    #[test]
+    fn update_epic_status_should_error_with_invalid_epic_id() {}
+
+    #[test]
+    fn update_epic_status_should_work() {}
+
+    #[test]
+    fn update_story_status_should_error_with_invalid_epic_id() {}
+
+    #[test]
+    fn update_story_status_should_error_with_invalid_story_id() {}
+
+    #[test]
+    fn update_story_status_should_work() {}
+
     mod database {
         use std::collections::HashMap;
         use std::io::Write;
