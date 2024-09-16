@@ -74,6 +74,18 @@ impl JiraDatabase {
             )),
         }
     }
+    pub fn delete_story(&mut self, epic_id: u32, story_id: u32) -> Result<Story> {
+        let mut db_state = self.read_db()?;
+        let epic = db_state
+            .epics
+            .get(&epic_id)
+            .with_context(|| "Epic was not fetched")?;
+        let story = db_state
+            .stories
+            .get(&story_id)
+            .with_context(|| "Story was not fetched")?;
+        Ok(story.clone())
+    }
 }
 pub mod test_utils {
     use std::{cell::RefCell, collections::HashMap};
