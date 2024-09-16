@@ -126,178 +126,177 @@ pub mod test_utils {
 mod tests {
     use super::*;
 
+    use test_utils::MockDB;
+
+    #[test]
+    fn create_a_new_epic() {
+        let mut db = JiraDatabase {
+            database: Box::new(MockDB::new()),
+        };
+        let epic = Epic::new("".to_owned(), "".to_owned());
+
+        let result = db.create_epic(epic.clone());
+
+        assert_eq!(result.is_ok(), true, "The result was an error");
+
+        let id = result.unwrap();
+        let db_state = db.read_db().unwrap();
+
+        let expected_id = 1;
+
+        assert_eq!(id, expected_id, "The resulting Id is not incremented");
+        assert_eq!(
+            db_state.last_item_id, expected_id,
+            "The last_item_id should match the incremented id"
+        );
+        assert_eq!(db_state.epics.get(&id), Some(&epic))
+    }
+
+    #[test]
+    fn create_story_should_error_with_invalid_epic_id() {
+        let mut db = JiraDatabase {
+            database: Box::new(MockDB::new()),
+        };
+        let story = Story::new("Sample text".to_owned(), "description text".to_owned());
+        let invalid_id: u32 = 100;
+        let result: Result<u32> = db.create_story(story, invalid_id);
+
+        assert_eq!(result.is_err(), true);
+    }
+
+    #[test]
+    fn create_story_should_work() {
+        let mut db = JiraDatabase {
+            database: Box::new(MockDB::new()),
+        };
+        let epic = Epic::new("Key Project".to_owned(), "Attach some stories".to_owned());
+        let story = Story::new(
+            "New story".to_owned(),
+            "A really important new story".to_owned(),
+        );
+
+        let result_epic_id = db.create_epic(epic);
+        assert_eq!(result_epic_id.is_ok(), true);
+
+        let epic_id = result_epic_id.unwrap();
+
+        let result = db.create_story(story.clone(), epic_id);
+        assert_eq!(
+            result.is_ok(),
+            true,
+            "Calling `.create_story` resulted in an error"
+        );
+
+        let expected_id = 2u32;
+        let id = result.unwrap();
+        assert_eq!(
+            id, expected_id,
+            "The `id` of the added story didn't match the expected value"
+        );
+
+        let persisted_story = db
+            .database
+            .read_db()
+            .unwrap()
+            .stories
+            .get(&id)
+            .unwrap()
+            .clone();
+        assert_eq!(
+            persisted_story, story,
+            "The story fetched does not match the story persisted"
+        );
+    }
+
+    #[test]
+    fn delete_epic_should_error_with_invalid_epic_id() {
+        let mut db = JiraDatabase {
+            database: Box::new(MockDB::new()),
+        };
+        let epic = Epic::new("".to_owned(), "".to_owned());
+        let new_epic = db.create_epic(epic.clone());
+        assert_eq!(new_epic.is_ok(), true);
+
+        let invalid_epic_id = 99;
+        let result = db.delete_epic(invalid_epic_id);
+
+        assert_eq!(result.is_err(), true);
+    }
+
+    #[test]
+    fn delete_epic_should_delete_existing_epic() {
+        let mut db = JiraDatabase {
+            database: Box::new(MockDB::new()),
+        };
+        let epic = Epic::new("".to_owned(), "".to_owned());
+        let result_epic_id = db.create_epic(epic.clone());
+
+        assert_eq!(result_epic_id.is_ok(), true);
+
+        let id = result_epic_id.unwrap();
+        let returned_epic = db.delete_epic(id).unwrap();
+
+        let db_state = db.database.read_db().unwrap();
+        let not_found = db_state.epics.get(&id);
+        assert_eq!(not_found, None);
+        assert_eq!(returned_epic, epic);
+    }
+
+    #[test]
+    fn delete_story_should_error_if_invalid_epic_id() {
+        let mut db = JiraDatabase {
+            database: Box::new(MockDB::new()),
+        };
+        let epic = Epic::new("".to_owned(), "".to_owned());
+        let story = Story::new("".to_owned(), "".to_owned());
+
+        let res_epic_id = db.create_epic(epic);
+        assert!(res_epic_id.is_ok(), "Epic did not persist to db.");
+
+        let epic_id = res_epic_id.unwrap();
+        let res_story_id = db.create_story(story, epic_id);
+        assert!(res_story_id.is_ok(), "The story was not created in DB");
+
+        let invalid_epic_id = 999;
+        assert_ne!(
+            epic_id, invalid_epic_id,
+            "The epic ID should not be invalid"
+        );
+
+        let result = db.delete_story(invalid_epic_id, res_story_id.unwrap());
+        assert_eq!(result.is_err(), true);
+    }
+
+    #[test]
+    fn delete_story_should_error_if_story_not_found_in_epic() {
+        let mut db = JiraDatabase {
+            database: Box::new(MockDB::new()),
+        };
+        let epic = Epic::new("".to_owned(), "".to_owned());
+        let story = Story::new("".to_owned(), "".to_owned());
+        let res_epic_id = db.create_epic(epic);
+        assert!(res_epic_id.is_ok());
+
+        let epic_id = res_epic_id.unwrap();
+        let res_story_id = db.create_story(story, epic_id);
+        assert!(res_story_id.is_ok());
+
+        let invalid_story_id = 999;
+        assert_ne!(invalid_story_id, res_story_id.unwrap());
+
+        let result = db.delete_story(epic_id, invalid_story_id);
+        assert_eq!(result.is_err(), true);
+    }
+
     mod database {
         use std::collections::HashMap;
-        use std::hash::Hash;
         use std::io::Write;
-
-        use test_utils::MockDB;
 
         use crate::models::{Epic, Status, Story};
 
         use super::JSONFileDatabase;
 
         use super::*;
-
-        #[test]
-        fn create_a_new_epic() {
-            let mut db = JiraDatabase {
-                database: Box::new(MockDB::new()),
-            };
-            let epic = Epic::new("".to_owned(), "".to_owned());
-
-            let result = db.create_epic(epic.clone());
-
-            assert_eq!(result.is_ok(), true, "The result was an error");
-
-            let id = result.unwrap();
-            let db_state = db.read_db().unwrap();
-
-            let expected_id = 1;
-
-            assert_eq!(id, expected_id, "The resulting Id is not incremented");
-            assert_eq!(
-                db_state.last_item_id, expected_id,
-                "The last_item_id should match the incremented id"
-            );
-            assert_eq!(db_state.epics.get(&id), Some(&epic))
-        }
-
-        #[test]
-        fn create_story_should_error_with_invalid_epic_id() {
-            let mut db = JiraDatabase {
-                database: Box::new(MockDB::new()),
-            };
-            let story = Story::new("Sample text".to_owned(), "description text".to_owned());
-            let invalid_id: u32 = 100;
-            let result: Result<u32> = db.create_story(story, invalid_id);
-
-            assert_eq!(result.is_err(), true);
-        }
-
-        #[test]
-        fn create_story_should_work() {
-            let mut db = JiraDatabase {
-                database: Box::new(MockDB::new()),
-            };
-            let epic = Epic::new("Key Project".to_owned(), "Attach some stories".to_owned());
-            let story = Story::new(
-                "New story".to_owned(),
-                "A really important new story".to_owned(),
-            );
-
-            let result_epic_id = db.create_epic(epic);
-            assert_eq!(result_epic_id.is_ok(), true);
-
-            let epic_id = result_epic_id.unwrap();
-
-            let result = db.create_story(story.clone(), epic_id);
-            assert_eq!(
-                result.is_ok(),
-                true,
-                "Calling `.create_story` resulted in an error"
-            );
-
-            let expected_id = 2u32;
-            let id = result.unwrap();
-            assert_eq!(
-                id, expected_id,
-                "The `id` of the added story didn't match the expected value"
-            );
-
-            let persisted_story = db
-                .database
-                .read_db()
-                .unwrap()
-                .stories
-                .get(&id)
-                .unwrap()
-                .clone();
-            assert_eq!(
-                persisted_story, story,
-                "The story fetched does not match the story persisted"
-            );
-        }
-
-        #[test]
-        fn delete_epic_should_error_with_invalid_epic_id() {
-            let mut db = JiraDatabase {
-                database: Box::new(MockDB::new()),
-            };
-            let epic = Epic::new("".to_owned(), "".to_owned());
-            let new_epic = db.create_epic(epic.clone());
-            assert_eq!(new_epic.is_ok(), true);
-
-            let invalid_epic_id = 99;
-            let result = db.delete_epic(invalid_epic_id);
-
-            assert_eq!(result.is_err(), true);
-        }
-
-        #[test]
-        fn delete_epic_should_delete_existing_epic() {
-            let mut db = JiraDatabase {
-                database: Box::new(MockDB::new()),
-            };
-            let epic = Epic::new("".to_owned(), "".to_owned());
-            let result_epic_id = db.create_epic(epic.clone());
-
-            assert_eq!(result_epic_id.is_ok(), true);
-
-            let id = result_epic_id.unwrap();
-            let returned_epic = db.delete_epic(id).unwrap();
-
-            let db_state = db.database.read_db().unwrap();
-            let not_found = db_state.epics.get(&id);
-            assert_eq!(not_found, None);
-            assert_eq!(returned_epic, epic);
-        }
-
-        #[test]
-        fn delete_story_should_error_if_invalid_epic_id() {
-            let mut db = JiraDatabase {
-                database: Box::new(MockDB::new()),
-            };
-            let epic = Epic::new("".to_owned(), "".to_owned());
-            let story = Story::new("".to_owned(), "".to_owned());
-
-            let res_epic_id = db.create_epic(epic);
-            assert!(res_epic_id.is_ok(), "Epic did not persist to db.");
-
-            let epic_id = res_epic_id.unwrap();
-            let res_story_id = db.create_story(story, epic_id);
-            assert!(res_story_id.is_ok(), "The story was not created in DB");
-
-            let invalid_epic_id = 999;
-            assert_ne!(
-                epic_id, invalid_epic_id,
-                "The epic ID should not be invalid"
-            );
-
-            let result = db.delete_story(invalid_epic_id, res_story_id.unwrap());
-            assert_eq!(result.is_err(), true);
-        }
-
-        #[test]
-        fn delete_story_should_error_if_story_not_found_in_epic() {
-            let mut db = JiraDatabase {
-                database: Box::new(MockDB::new()),
-            };
-            let epic = Epic::new("".to_owned(), "".to_owned());
-            let story = Story::new("".to_owned(), "".to_owned());
-            let res_epic_id = db.create_epic(epic);
-            assert!(res_epic_id.is_ok());
-
-            let epic_id = res_epic_id.unwrap();
-            let res_story_id = db.create_story(story, epic_id);
-            assert!(res_story_id.is_ok());
-
-            let invalid_story_id = 999;
-            assert_ne!(invalid_story_id, res_story_id.unwrap());
-
-            let result = db.delete_story(epic_id, invalid_story_id);
-            assert_eq!(result.is_err(), true);
-        }
 
         #[test]
         fn read_db_should_fail_with_invalid_path() {
