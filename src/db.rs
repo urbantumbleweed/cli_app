@@ -279,6 +279,27 @@ mod tests {
         }
 
         #[test]
+        fn delete_story_should_error_if_story_not_found_in_epic() {
+            let mut db = JiraDatabase {
+                database: Box::new(MockDB::new()),
+            };
+            let epic = Epic::new("".to_owned(), "".to_owned());
+            let story = Story::new("".to_owned(), "".to_owned());
+            let res_epic_id = db.create_epic(epic);
+            assert!(res_epic_id.is_ok());
+
+            let epic_id = res_epic_id.unwrap();
+            let res_story_id = db.create_story(story, epic_id);
+            assert!(res_story_id.is_ok());
+
+            let invalid_story_id = 999;
+            assert_ne!(invalid_story_id, res_story_id.unwrap());
+
+            let result = db.delete_story(epic_id, invalid_story_id);
+            assert_eq!(result.is_err(), true);
+        }
+
+        #[test]
         fn read_db_should_fail_with_invalid_path() {
             let db = JSONFileDatabase {
                 file_path: "INVALID PATH".to_owned(),
