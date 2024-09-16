@@ -49,9 +49,8 @@ impl JiraDatabase {
         current_state.stories.insert(new_story_id, story.clone());
         let mut epic = current_state
             .epics
-            .get(&epic_id)
-            .context("Error getting epic")?
-            .clone();
+            .get_mut(&epic_id)
+            .context("Error getting epic")?;
         epic.stories.push(new_story_id);
         current_state.last_item_id = new_story_id;
         let _ = self.database.write_db(&current_state);
