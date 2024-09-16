@@ -316,12 +316,20 @@ mod tests {
             "The deleted story does not match was was added"
         );
 
-        let current_state = db.read_db().unwrap();
+        let mut current_state = db.read_db().unwrap();
         let not_found_story = current_state.stories.get(&story_id);
         assert_eq!(
             not_found_story, None,
             "Requesting the deleted story should be None"
         );
+
+        let epic_stories_len = current_state
+            .epics
+            .get_mut(&epic_id)
+            .map(|epic| epic.stories.len());
+
+        let expected_epic_story_len = 0usize;
+        assert_eq!(epic_stories_len.unwrap(), expected_epic_story_len);
     }
 
     mod database {
