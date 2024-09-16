@@ -84,6 +84,9 @@ impl JiraDatabase {
             .get(&story_id)
             .with_context(|| "Story was not fetched")?;
         let deleted_story = db_state.stories.remove(&story_id);
+        if let Some(epic) = db_state.epics.get_mut(&epic_id) {
+            epic.stories.retain(|s_id| s_id != &story_id);
+        }
 
         let _ = self.database.write_db(&db_state)?;
 
