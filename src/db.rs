@@ -64,7 +64,10 @@ impl JiraDatabase {
     pub fn delete_epic(&mut self, id: u32) -> Result<Epic> {
         let mut current_state = self.database.read_db().context("Error fetching database")?;
         match current_state.epics.remove(&id) {
-            Some(deleted_epic) => Ok(deleted_epic),
+            Some(deleted_epic) => {
+                let _ = self.database.write_db(&current_state);
+                Ok(deleted_epic)
+            }
             None => Err(anyhow!(
                 "The epic with Id: {} could not be removed because it is invalid or does not exist",
                 &id
