@@ -220,6 +220,25 @@ mod tests {
         }
 
         #[test]
+        fn delete_epic_should_delete_existing_epic() {
+            let mut db = JiraDatabase {
+                database: Box::new(MockDB::new()),
+            };
+            let epic = Epic::new("".to_owned(), "".to_owned());
+            let result_epic_id = db.create_epic(epic.clone());
+
+            assert_eq!(result_epic_id.is_ok(), true);
+
+            let id = result_epic_id.unwrap();
+            let returned_epic = db.delete_epic(id).unwrap();
+
+            let db_state = db.database.read_db().unwrap();
+            let not_found = db_state.epics.get(&id);
+            assert_eq!(not_found, None);
+            assert_eq!(returned_epic, epic);
+        }
+
+        #[test]
         fn read_db_should_fail_with_invalid_path() {
             let db = JSONFileDatabase {
                 file_path: "INVALID PATH".to_owned(),
