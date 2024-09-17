@@ -20,5 +20,17 @@ mod tests {
 
             assert_eq!(result, expected);
         }
+
+        #[test]
+        fn should_produce_empty_string_with_width_of_zero() {
+            let text = "yo";
+            let width = 0usize;
+
+            let expected = String::from("");
+            let result = get_column_string(text, width);
+
+            assert_eq!(result, expected)
+        }
+
     }
 }
