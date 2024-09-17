@@ -75,7 +75,7 @@ impl JiraDatabase {
     }
     pub fn delete_story(&mut self, epic_id: u32, story_id: u32) -> Result<Story> {
         let mut db_state = self.read_db()?;
-        let mut epic = db_state
+        let epic = db_state
             .epics
             .get(&epic_id)
             .with_context(|| "Epic was not fetched")?;
