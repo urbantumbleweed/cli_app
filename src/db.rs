@@ -418,7 +418,28 @@ mod tests {
     }
 
     #[test]
-    fn update_story_status_should_work() {}
+    fn update_story_status_should_work() {
+        let mut db = JiraDatabase {
+            database: Box::new(MockDB::new()),
+        };
+        let epic = Epic::new("".to_owned(), "".to_owned());
+        let epic_id = db.create_epic(epic).unwrap();
+        let story = Story::new("".to_owned(), "".to_owned());
+        let res_story_id = db.create_story(story, epic_id);
+
+        assert!(res_story_id.is_ok(), "The story was not persisted");
+        let story_id = res_story_id.unwrap();
+
+        let expected_status = &Status::Closed;
+        let result = db.update_story_status(story_id, expected_status);
+
+        assert_eq!(result.is_ok(), true);
+
+        let current_state = db.read_db().unwrap();
+        let Story { status, .. }: &Story = current_state.stories.get(&story_id).unwrap();
+
+        assert_eq!(status, expected_status);
+    }
 
     mod database {
         use std::collections::HashMap;
