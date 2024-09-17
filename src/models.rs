@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +9,17 @@ pub enum Status {
     InProgress,
     Resolved,
     Closed,
+}
+
+impl Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            Self::Open => f.write_str("OPEN"),
+            Self::InProgress => f.write_str("IN PROGRESS"),
+            Self::Resolved => f.write_str("RESOLVED"),
+            Self::Closed => f.write_str("Closed"),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -65,6 +76,31 @@ mod tests {
         fn status_should_default_to_open() {
             let s = Status::default();
             assert_eq!(s, Status::Open)
+        }
+
+        #[test]
+        fn status_has_a_to_string_method() {
+            let statuses: Vec<Status> = vec![
+                Status::Open,
+                Status::InProgress,
+                Status::Resolved,
+                Status::Closed,
+            ];
+            let expected_strings = vec!["OPEN", "IN PROGRESS", "RESOLVED", "Closed"];
+            let strings_match: bool = statuses
+                .iter()
+                .zip(expected_strings.iter())
+                .map(|(actual, expected)| {
+                    let actual_string = actual.to_string();
+                    if &actual_string == expected {
+                        Ok(actual_string)
+                    } else {
+                        Err(format!("{} and {} do not match", &actual_string, &expected))
+                    }
+                })
+                .all(|result| result.is_ok());
+
+            assert_eq!(strings_match, true)
         }
     }
 }
