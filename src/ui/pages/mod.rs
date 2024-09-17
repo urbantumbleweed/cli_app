@@ -13,6 +13,7 @@ mod tests {
     use super::*;
 
     mod handle_input {
+        use super::handle_input;
 
         #[test]
         fn should_fail_() {}
@@ -25,6 +26,7 @@ mod tests {
     }
 
     mod draw_page {
+        use super::draw_page;
 
         #[test]
         fn should_render_user_actions() {}
