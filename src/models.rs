@@ -2,6 +2,8 @@ use std::{collections::HashMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
+pub enum Action {}
+
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum Status {
     #[default]
