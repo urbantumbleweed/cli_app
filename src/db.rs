@@ -92,6 +92,21 @@ impl JiraDatabase {
 
         deleted_story.with_context(|| format!("No story with the id: {} was found", &story_id))
     }
+
+    pub fn update_epic_status(&mut self, epic_id: u32, status: Status) -> Result<()> {
+        let mut current_state = self.database.read_db()?;
+        let updated_epic: Epic = current_state.epics.get_mut(&epic_id).map_or_else(
+            || Err(anyhow!("Epic not found")),
+            |epic| {
+                epic.status = status;
+                Ok(epic.clone())
+            },
+        )?;
+        let _ = current_state.epics.insert(epic_id, updated_epic);
+        self.database.write_db(&current_state)?;
+
+        Ok(())
+    }
 }
 pub mod test_utils {
     use std::{cell::RefCell, collections::HashMap};
@@ -130,6 +145,8 @@ pub mod test_utils {
 
 #[cfg(test)]
 mod tests {
+    use crate::models::Status;
+
     use super::*;
 
     use test_utils::MockDB;
@@ -335,7 +352,18 @@ mod tests {
     }
 
     #[test]
-    fn update_epic_status_should_error_with_invalid_epic_id() {}
+    fn update_epic_status_should_error_with_invalid_epic_id() {
+        let mut db = JiraDatabase {
+            database: Box::new(MockDB::new()),
+        };
+        let epic = Epic::new("".to_owned(), "".to_owned());
+        let epic_id = db.create_epic(epic).unwrap();
+
+        let invalid_epic_id = 99;
+        assert_ne!(epic_id, invalid_epic_id, "The ids should not match");
+        let result = db.update_epic_status(invalid_epic_id, Status::InProgress);
+        assert_eq!(result.is_err(), true);
+    }
 
     #[test]
     fn update_epic_status_should_work() {}
