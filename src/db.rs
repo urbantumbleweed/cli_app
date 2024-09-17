@@ -1,9 +1,9 @@
-use std::{fs, io};
+use std::fs;
 
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{anyhow, Context, Result};
 use serde_json::json;
 
-use crate::models::{DBState, Epic, Story};
+use crate::models::{DBState, Epic, Status, Story};
 
 trait Database {
     fn read_db(&self) -> Result<DBState>;
