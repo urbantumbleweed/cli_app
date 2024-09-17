@@ -53,3 +53,18 @@ pub struct DBState {
     pub epics: HashMap<u32, Epic>,
     pub stories: HashMap<u32, Story>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod status {
+        use super::Status;
+
+        #[test]
+        fn status_should_default_to_open() {
+            let s = Status::default();
+            assert_eq!(s, Status::Open)
+        }
+    }
+}
