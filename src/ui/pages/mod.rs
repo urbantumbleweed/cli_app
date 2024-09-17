@@ -1,8 +1,10 @@
 use anyhow::Result;
 
+mod page_helpers;
+
 use crate::models::Action;
 
-fn handle_input() -> Result<Option<Action>> {}
+fn handle_input() /*-> Result<Option<Action>>*/ {}
 
 fn draw_page() {}
 
