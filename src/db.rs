@@ -1,6 +1,8 @@
+#![allow(dead_code)]
+
 use std::fs;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Ok, Result};
 use serde_json::json;
 
 use crate::models::{DBState, Epic, Status, Story};
@@ -47,7 +49,7 @@ impl JiraDatabase {
         let mut current_state = self.database.read_db().context("Error fetching database")?;
         let new_story_id = current_state.last_item_id + 1;
         current_state.stories.insert(new_story_id, story.clone());
-        let mut epic = current_state
+        let epic = current_state
             .epics
             .get_mut(&epic_id)
             .context("Error getting epic")?;
@@ -56,9 +58,6 @@ impl JiraDatabase {
         let _ = self.database.write_db(&current_state);
 
         Ok(new_story_id)
-    }
-    pub fn read<U>(&self, id: &U) -> Result<Epic> {
-        todo!("Implement the ability to query the db for an entry based on the hashmap id")
     }
     pub fn delete_epic(&mut self, id: u32) -> Result<Epic> {
         let mut current_state = self.database.read_db().context("Error fetching database")?;
@@ -75,11 +74,11 @@ impl JiraDatabase {
     }
     pub fn delete_story(&mut self, epic_id: u32, story_id: u32) -> Result<Story> {
         let mut db_state = self.read_db()?;
-        let epic = db_state
+        let _epic = db_state
             .epics
             .get(&epic_id)
             .with_context(|| "Epic was not fetched")?;
-        let story = db_state
+        let _story = db_state
             .stories
             .get(&story_id)
             .with_context(|| "Story was not fetched")?;
@@ -105,6 +104,24 @@ impl JiraDatabase {
         let _ = current_state.epics.insert(epic_id, updated_epic);
         self.database.write_db(&current_state)?;
 
+        Ok(())
+    }
+
+    pub fn update_story_status(&mut self, story_id: u32, status: &Status) -> Result<()> {
+        let mut db_state = self
+            .read_db()
+            .with_context(|| format!("Unable to read database"))?;
+        let updated_story = match db_state.stories.get_mut(&story_id) {
+            Some(story) => {
+                story.status = status.clone();
+                Ok(story.clone())
+            }
+            None => Err(anyhow!("Story was not found with id: {}", &story_id)),
+        }?;
+        let _story_added = db_state.stories.insert(story_id, updated_story);
+        self.database
+            .write_db(&db_state)
+            .with_context(|| anyhow!("Unable to write database to file system"))?;
         Ok(())
     }
 }
@@ -383,10 +400,22 @@ mod tests {
     }
 
     #[test]
-    fn update_story_status_should_error_with_invalid_epic_id() {}
+    fn update_story_status_should_error_with_invalid_story_id() {
+        let mut db = JiraDatabase {
+            database: Box::new(MockDB::new()),
+        };
+        let epic = Epic::new("".to_owned(), "".to_owned());
+        let epic_id = db.create_epic(epic).unwrap();
+        let story = Story::new("".to_owned(), "".to_owned());
+        let res_story_id = db.create_story(story, epic_id);
 
-    #[test]
-    fn update_story_status_should_error_with_invalid_story_id() {}
+        assert!(res_story_id.is_ok(), "The story was not persisted");
+
+        let invalid_story_id = 99;
+        let result = db.update_story_status(invalid_story_id, &Status::Closed);
+
+        assert_eq!(result.is_err(), true);
+    }
 
     #[test]
     fn update_story_status_should_work() {}
