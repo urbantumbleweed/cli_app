@@ -19,7 +19,7 @@ impl Display for Status {
             Self::Open => f.write_str("OPEN"),
             Self::InProgress => f.write_str("IN PROGRESS"),
             Self::Resolved => f.write_str("RESOLVED"),
-            Self::Closed => f.write_str("Closed"),
+            Self::Closed => f.write_str("CLOSED"),
         }
     }
 }
@@ -88,7 +88,7 @@ mod tests {
                 Status::Resolved,
                 Status::Closed,
             ];
-            let expected_strings = vec!["OPEN", "IN PROGRESS", "RESOLVED", "Closed"];
+            let expected_strings = vec!["OPEN", "IN PROGRESS", "RESOLVED", "CLOSED"];
             let strings_match: bool = statuses
                 .iter()
                 .zip(expected_strings.iter())
