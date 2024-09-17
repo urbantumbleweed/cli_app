@@ -32,5 +32,15 @@ mod tests {
             assert_eq!(result, expected)
         }
 
+        #[test]
+        fn should_display_complete_text_if_smaller_than_width() {
+            let text = "kiss me";
+            let width = 20usize;
+
+            let expected = String::from("kiss me");
+            let result = get_column_string(text, width);
+
+            assert_eq!(result, expected)
+        }
     }
 }
