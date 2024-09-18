@@ -1,6 +1,9 @@
 use std::rc::Rc;
 
-use anyhow::Result;
+use anyhow::{anyhow, Ok, Result};
+use itertools::Itertools;
+
+use crate::{db::JiraDatabase, models::Action};
 
 mod page_helpers;
 use page_helpers::*;
@@ -53,19 +56,18 @@ mod tests {
         }
 
         #[test]
-        fn should_return_none_with_invalid_user_input() {}
+        fn handle_input_should_return_the_correct_actions() {
+            assert!(true, "Complete this stubbed test")
+        }
 
         #[test]
-        fn should_produce_an_action_with_valid_user_input() {}
-    }
-
-    mod draw_page {
-        use super::draw_page;
+        fn should_render_user_actions() {
+            assert!(true, "Complete this stubbed test")
+        }
 
         #[test]
-        fn should_render_user_actions() {}
-
-        #[test]
-        fn should_render_to_std_out() {}
+        fn should_render_to_std_out() {
+            assert!(true, "Complete this stubbed test")
+        }
     }
 }
