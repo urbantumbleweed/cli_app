@@ -1,22 +1,56 @@
+use std::rc::Rc;
+
 use anyhow::Result;
 
 mod page_helpers;
+use page_helpers::*;
 
-use crate::models::Action;
+trait Page {
+    fn handle_input(&self, input: &str) -> Result<Option<Action>>;
+    fn draw_page(&self) -> Result<()>;
+}
 
-fn handle_input() /*-> Result<Option<Action>>*/ {}
+struct HomePage {
+    pub db: Rc<JiraDatabase>,
+}
 
-fn draw_page() {}
+impl HomePage {
+    fn new(db: Rc<JiraDatabase>) -> Self {
+        HomePage { db }
+    }
+}
+
+impl Page for HomePage {
+    fn handle_input(&self, input: &str) -> Result<Option<Action>> {
+        Ok(Some(Action::Exit))
+    }
+    fn draw_page(&self) -> Result<()> {
+        println!("----------------------------- EPICS -----------------------------");
+        println!("  id  |     name     |         description         |    status    ");
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    mod handle_input {
-        use super::handle_input;
+    use crate::db::{test_utils::MockDB, JiraDatabase};
+
+    mod home_page {
+
+        use super::*;
 
         #[test]
-        fn should_fail_() {}
+        fn draw_page_should_not_throw_error() {
+            let db = Rc::new(JiraDatabase {
+                database: Box::new(MockDB::new()),
+            });
+            let home_page = HomePage::new(db);
+            let result = home_page.draw_page();
+
+            assert!(result.is_ok())
+        }
 
         #[test]
         fn should_return_none_with_invalid_user_input() {}
