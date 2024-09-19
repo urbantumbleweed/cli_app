@@ -1,6 +1,6 @@
 use ellipse::Ellipse;
 
-fn get_column_string(text: &str, width: usize) -> String {
+pub fn get_column_string(text: &str, width: usize) -> String {
     text.truncate_ellipse(width).to_string()
 }
 

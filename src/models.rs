@@ -15,7 +15,7 @@ pub enum Action {
     Exit,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub enum Status {
     #[default]
     Open,
@@ -35,7 +35,7 @@ impl Display for Status {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub struct Epic {
     pub name: String,
     pub description: String,
