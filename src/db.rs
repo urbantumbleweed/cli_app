@@ -1,13 +1,14 @@
 #![allow(dead_code)]
 
 use std::fs;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Context, Ok, Result};
 use serde_json::json;
 
 use crate::models::{DBState, Epic, Status, Story};
 
-trait Database {
+pub trait Database: Send + Sync {
     fn read_db(&self) -> Result<DBState>;
     fn write_db(&self, db_state: &DBState) -> Result<()>;
 }
@@ -30,23 +31,35 @@ impl Database for JSONFileDatabase {
 }
 
 pub struct JiraDatabase {
-    database: Box<dyn Database>,
+    pub database: Arc<Mutex<dyn Database>>,
 }
 
 impl JiraDatabase {
     pub fn read_db(&self) -> Result<DBState> {
-        self.database.read_db()
+        self.database
+            .lock()
+            .map_err(|e| anyhow!("Unable to lock db with error: {}", e))?
+            .read_db()
     }
     pub fn create_epic(&mut self, epic: Epic) -> Result<u32> {
         let mut current_state = self.read_db()?;
         let id = current_state.last_item_id + 1;
         let _ = &current_state.epics.insert(id, epic.clone());
         current_state.last_item_id = id;
-        let _ = self.database.write_db(&current_state);
+        let _ = self
+            .database
+            .lock()
+            .map_err(|e| anyhow!("Unable to lock db with err: {}", e))?
+            .write_db(&current_state);
         Ok(id)
     }
     pub fn create_story(&mut self, story: Story, epic_id: u32) -> Result<u32> {
-        let mut current_state = self.database.read_db().context("Error fetching database")?;
+        let mut current_state = self
+            .database
+            .lock()
+            .map_err(|e| anyhow!("Unable to lock db with error: {}", e))?
+            .read_db()
+            .context("Error fetching database")?;
         let new_story_id = current_state.last_item_id + 1;
         current_state.stories.insert(new_story_id, story.clone());
         let epic = current_state
@@ -55,15 +68,28 @@ impl JiraDatabase {
             .context("Error getting epic")?;
         epic.stories.push(new_story_id);
         current_state.last_item_id = new_story_id;
-        let _ = self.database.write_db(&current_state);
+        let _ = self
+            .database
+            .lock()
+            .map_err(|e| anyhow!("Unable to lock db with error: {}", e))?
+            .write_db(&current_state);
 
         Ok(new_story_id)
     }
     pub fn delete_epic(&mut self, id: u32) -> Result<Epic> {
-        let mut current_state = self.database.read_db().context("Error fetching database")?;
+        let mut current_state = self
+            .database
+            .lock()
+            .map_err(|e| anyhow!("Unable to lock db with error: {}", e))?
+            .read_db()
+            .context("Error fetching database")?;
         match current_state.epics.remove(&id) {
             Some(deleted_epic) => {
-                let _ = self.database.write_db(&current_state);
+                let _ = self
+                    .database
+                    .lock()
+                    .map_err(|e| anyhow!("Unable to lock db with error: {}", e))?
+                    .write_db(&current_state);
                 Ok(deleted_epic)
             }
             None => Err(anyhow!(
@@ -87,13 +113,21 @@ impl JiraDatabase {
             epic.stories.retain(|s_id| s_id != &story_id);
         }
 
-        let _ = self.database.write_db(&db_state)?;
+        let _ = self
+            .database
+            .lock()
+            .map_err(|e| anyhow!("Unable to lock db with error: {}", e))?
+            .write_db(&db_state)?;
 
         deleted_story.with_context(|| format!("No story with the id: {} was found", &story_id))
     }
 
     pub fn update_epic_status(&mut self, epic_id: u32, status: &Status) -> Result<()> {
-        let mut current_state = self.database.read_db()?;
+        let mut current_state = self
+            .database
+            .lock()
+            .map_err(|e| anyhow!("Unable to lock db with error: {}", e))?
+            .read_db()?;
         let updated_epic: Epic = current_state.epics.get_mut(&epic_id).map_or_else(
             || Err(anyhow!("Epic not found")),
             |epic| {
@@ -102,7 +136,10 @@ impl JiraDatabase {
             },
         )?;
         let _ = current_state.epics.insert(epic_id, updated_epic);
-        self.database.write_db(&current_state)?;
+        self.database
+            .lock()
+            .map_err(|e| anyhow!("Unable to lock db with error: {}", e))?
+            .write_db(&current_state)?;
 
         Ok(())
     }
@@ -120,24 +157,29 @@ impl JiraDatabase {
         }?;
         let _story_added = db_state.stories.insert(story_id, updated_story);
         self.database
+            .lock()
+            .map_err(|e| anyhow!("Unable to lock db with error: {}", e))?
             .write_db(&db_state)
             .with_context(|| anyhow!("Unable to write database to file system"))?;
         Ok(())
     }
 }
 pub mod test_utils {
-    use std::{cell::RefCell, collections::HashMap};
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex},
+    };
 
     use super::*;
 
     pub struct MockDB {
-        last_written_state: RefCell<DBState>,
+        last_written_state: Mutex<DBState>,
     }
 
     impl MockDB {
         pub fn new() -> Self {
             MockDB {
-                last_written_state: RefCell::new(DBState {
+                last_written_state: Mutex::new(DBState {
                     last_item_id: 0,
                     epics: HashMap::new(),
                     stories: HashMap::new(),
@@ -148,13 +190,19 @@ pub mod test_utils {
 
     impl Database for MockDB {
         fn read_db(&self) -> Result<DBState> {
-            let state = self.last_written_state.borrow().clone();
+            let state = self
+                .last_written_state
+                .lock()
+                .map_err(|_| anyhow!("Failed to lock last written state"))?
+                .clone();
             Ok(state)
         }
         fn write_db(&self, db_state: &DBState) -> Result<()> {
             let latest_state = &self.last_written_state;
 
-            *latest_state.borrow_mut() = db_state.clone();
+            *latest_state
+                .lock()
+                .map_err(|_| anyhow!("Failed to lock last written state"))? = db_state.clone();
             Ok(())
         }
     }
@@ -171,7 +219,7 @@ mod tests {
     #[test]
     fn create_a_new_epic() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let epic = Epic::new("".to_owned(), "".to_owned());
 
@@ -195,7 +243,7 @@ mod tests {
     #[test]
     fn create_story_should_error_with_invalid_epic_id() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let story = Story::new("Sample text".to_owned(), "description text".to_owned());
         let invalid_id: u32 = 100;
@@ -207,7 +255,7 @@ mod tests {
     #[test]
     fn create_story_should_work() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let epic = Epic::new("Key Project".to_owned(), "Attach some stories".to_owned());
         let story = Story::new(
@@ -236,6 +284,8 @@ mod tests {
 
         let persisted_story = db
             .database
+            .lock()
+            .unwrap()
             .read_db()
             .unwrap()
             .stories
@@ -251,7 +301,7 @@ mod tests {
     #[test]
     fn delete_epic_should_error_with_invalid_epic_id() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let epic = Epic::new("".to_owned(), "".to_owned());
         let new_epic = db.create_epic(epic.clone());
@@ -266,7 +316,7 @@ mod tests {
     #[test]
     fn delete_epic_should_delete_existing_epic() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let epic = Epic::new("".to_owned(), "".to_owned());
         let result_epic_id = db.create_epic(epic.clone());
@@ -276,7 +326,7 @@ mod tests {
         let id = result_epic_id.unwrap();
         let returned_epic = db.delete_epic(id).unwrap();
 
-        let db_state = db.database.read_db().unwrap();
+        let db_state = db.database.lock().unwrap().read_db().unwrap();
         let not_found = db_state.epics.get(&id);
         assert_eq!(not_found, None);
         assert_eq!(returned_epic, epic);
@@ -285,7 +335,7 @@ mod tests {
     #[test]
     fn delete_story_should_error_if_invalid_epic_id() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let epic = Epic::new("".to_owned(), "".to_owned());
         let story = Story::new("".to_owned(), "".to_owned());
@@ -310,7 +360,7 @@ mod tests {
     #[test]
     fn delete_story_should_error_if_story_not_found_in_epic() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let epic = Epic::new("".to_owned(), "".to_owned());
         let story = Story::new("".to_owned(), "".to_owned());
@@ -331,7 +381,7 @@ mod tests {
     #[test]
     fn delete_story_should_work() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let epic = Epic::new("".to_owned(), "".to_owned());
         let story = Story::new("".to_owned(), "".to_owned());
@@ -371,7 +421,7 @@ mod tests {
     #[test]
     fn update_epic_status_should_error_with_invalid_epic_id() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let epic = Epic::new("".to_owned(), "".to_owned());
         let epic_id = db.create_epic(epic).unwrap();
@@ -385,7 +435,7 @@ mod tests {
     #[test]
     fn update_epic_status_should_work() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let epic = Epic::new("".to_owned(), "".to_owned());
         let epic_id = db.create_epic(epic).unwrap();
@@ -402,7 +452,7 @@ mod tests {
     #[test]
     fn update_story_status_should_error_with_invalid_story_id() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let epic = Epic::new("".to_owned(), "".to_owned());
         let epic_id = db.create_epic(epic).unwrap();
@@ -420,7 +470,7 @@ mod tests {
     #[test]
     fn update_story_status_should_work() {
         let mut db = JiraDatabase {
-            database: Box::new(MockDB::new()),
+            database: Arc::new(Mutex::new(MockDB::new())),
         };
         let epic = Epic::new("".to_owned(), "".to_owned());
         let epic_id = db.create_epic(epic).unwrap();
